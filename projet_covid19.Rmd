@@ -1,0 +1,521 @@
+---
+title: "projet_tnd_markdown"
+author: "Anis Harmali"
+date: "10/05/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Partie 1 : Analyses descriptives
+
+### 1) chargement du jeu de donnée
+```{r 1 }
+cov_19 = read.csv2("donnes_covid19_avril_total_par_departement_GPS.csv")
+
+```
+
+### 2) présentation du jeu de données
+```{r 2}
+head(cov_19) # affichage partiel des données
+
+
+summary(cov_19) # vue résumée des variables
+
+
+library(FactoMineR,options(warn = -1))
+
+names(cov_19) # nom des variables
+ 
+
+str(cov_19) # type des variables
+
+
+
+dim(cov_19) # dimension des données
+
+
+library(dplyr,options(warn = -1))
+
+boxplot(scale(cov_19[,5:8]), center = T, horizontal = T, main = "stats hopital",names=c("deces","rea","hosp","gueris")) # boite a moustache
+
+
+moy_deces = mean(cov_19$deces_total)
+moy_rea = mean(cov_19$reanimation_total) 
+moy_hosp = mean(cov_19$hospitalises_total) 
+moy_gueris = mean(cov_19$gueris_total)
+# diagramme en secteur
+pie(c(moy_deces,moy_rea,moy_hosp,moy_gueris),labels=c("deces","reanimation","hospitalisation","gueris"),cex=1.5)
+
+
+
+
+
+# histogramme
+hist(cov_19$deces_total,col = cov_19$deces_total)
+hist(cov_19$reanimation_total,col = cov_19$reanimation_total)
+hist(cov_19$hospitalises_total,col = cov_19$hospitalises_total)
+hist(cov_19$gueris_total,col = cov_19$gueris_total)
+```
+
+### 3) affichage des données sur des cartes géographiques à partir de coordonnées GPS
+```{r 3}
+library(ggplot2,options(warn = -1))
+library(dplyr,options(warn = -1))
+library(maps,options(warn = -1))
+library(ggrepel,options(warn = -1))
+library(mapdata,options(warn = -1))
+library(viridis,options(warn = -1))
+
+carte_fr <- map_data("france") #cree la carte de la france
+
+# deces 
+ggplot(carte_fr, aes(x = long, y = lat)) +
+  geom_polygon(data = carte_fr, fill="lightgray", colour = "grey", alpha=0)+
+  geom_point( data = cov_19 , aes(x = longitude , y = latitude , size=deces_total,colour = deces_total))+
+  scale_size_continuous(range=c(1,15)) +
+  scale_color_gradient(low="yellow", high="red")+
+  theme_void() +
+  xlim (-5,12) + ylim(40,53) + coord_map()
+
+# reanimation
+ggplot(carte_fr, aes(x = long, y = lat)) +
+  geom_polygon(data = carte_fr, fill="lightgray", colour = "grey", alpha=0)+
+  geom_point( data = cov_19 , aes(x = longitude , y = latitude , size=reanimation_total,colour = reanimation_total))+
+  scale_size_continuous(range=c(1,15)) +
+  scale_color_gradient(low="yellow", high="red")+
+  theme_void() +
+  xlim (-5,12) + ylim(40,53) + coord_map()
+
+# hospitalisation
+ggplot(carte_fr, aes(x = long, y = lat)) +
+  geom_polygon(data = carte_fr, fill="lightgray", colour = "grey", alpha=0)+
+  geom_point( data = cov_19 , aes(x = longitude , y = latitude , size=hospitalises_total,colour = hospitalises_total))+
+  scale_size_continuous(range=c(1,15)) +
+  scale_color_gradient(low="yellow", high="red")+
+  theme_void() +
+  xlim (-5,12) + ylim(40,53) + coord_map()
+
+# gueris
+ggplot(carte_fr, aes(x = long, y = lat)) +
+  geom_polygon(data = carte_fr, fill="lightgray", colour = "grey", alpha=0)+
+  geom_point( data = cov_19 , aes(x = longitude , y = latitude , size=gueris_total,colour = gueris_total))+
+  scale_size_continuous(range=c(1,15)) +
+  scale_color_gradient(low="yellow", high="red")+
+  theme_void() +
+  xlim (-5,12) + ylim(40,53) + coord_map()
+
+```
+
+### 4) (Bonus) utilisation du package leaflet.minichart
+```{r 4}
+library(leaflet.minicharts,options(warn = -1))
+library(leaflet,options(warn = -1))
+
+tilesURL <- "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
+basemap <- leaflet(width = "100%", height = "600px") %>%addTiles(tilesURL)
+
+
+```
+carte des deces
+```{r }
+
+basemap %>%
+  addMinicharts(
+    cov_19$longitude, cov_19$latitude,
+    chartdata = cov_19$deces_total,
+    showLabels = TRUE,
+    legend = T,
+    width = 45,
+  )
+
+```
+carte des reanimations
+```{r }
+
+basemap %>%
+  addMinicharts(
+    cov_19$longitude, cov_19$latitude,
+    chartdata = cov_19$reanimation_total,
+    showLabels = TRUE,
+    width = 45
+  )
+```
+carte des hospitalisations
+```{r }
+
+basemap %>%
+  addMinicharts(
+    cov_19$longitude, cov_19$latitude,
+    chartdata = cov_19$hospitalises_total,
+    showLabels = TRUE,
+    width = 45
+  )
+
+
+```
+carte des gueris
+```{r }
+
+basemap %>%
+  addMinicharts(
+    cov_19$longitude, cov_19$latitude,
+    chartdata = cov_19$gueris_total,
+    showLabels = TRUE,
+    colorPalette = colors, 
+    width = 45
+  )
+
+```
+
+
+
+
+
+
+
+# Partie 2 : Prédiction du nombre de décès
+
+### 1) Calcul de la corrélation entre les différentes variables et afficher la matrice de corrélation
+```{r }
+library(corrplot,options(warn = -1))
+correlation = cor(scale(cov_19[,5:8])) #calcule de la correlation
+correlation # affichage
+corrplot(correlation,method = "square",type = "upper",addrect = 2,cl.ratio = 0.5,cl.cex = 0.8)
+# visualisation de la matrice de correaltion
+
+```
+
+### 2) Visualisation des nuages de points entre chaque variable et la variable à prédire «deces_total»
+```{r }
+plot(cov_19$deces_total,cov_19$reanimation_total)
+droite = lm(cov_19$reanimation_total~cov_19$deces_total)
+abline(droite,col = "red")
+
+```
+reanimation_total vs deces_total
+
+```{r }
+plot(cov_19$deces_total,cov_19$hospitalises_total)
+droite = lm(cov_19$hospitalises_total~cov_19$deces_total)
+abline(droite,col = "red")
+
+```
+hospitalises_total vs deces_total
+
+```{r }
+plot(cov_19$deces_total,cov_19$gueris_total)
+droite = lm(cov_19$gueris_total~cov_19$deces_total)
+abline(droite,col = "red")
+
+```
+gueris_total vs deces_total
+
+
+
+#Remarque: il y a une forte correclation entre toutes les variables
+
+#les variables qui permettent d’expliquer au mieux la variable à prédire sont reanimation_total et hospitalisation_total car la repartition des points sur la droite de correlation est meilleure et  vu l'échelle c'est normal qu'il y ait des incohérences
+
+
+### 3) division du jeu de donnnées en deux ensembles apprentissage 80% /test 20% 
+
+```{r }
+sample <- sample.int(n = nrow(cov_19), size = floor(.80*nrow(cov_19)))
+apprentissage <- cov_19[sample, ]
+test  <- cov_19[-sample, ]
+
+```
+
+### 4) Réalisation d'une régression linéaire entre les variables explicatives «reanimation_total»,«hospitalises_total»,«gueris_total» et la variable à expliquer «deces_total» surl’ensembled’apprentissage
+```{r }
+# calcule de la regression multiple
+regression_apprentissage = lm(deces_total ~ reanimation_total+hospitalises_total+gueris_total,data=apprentissage) 
+summary(regression_apprentissage)
+#Affichage des quatre graphiques de diagnostic.
+plot(regression_apprentissage)
+
+
+```
+
+#residual vs fitted :
+#il n y'a presque aucune valeur isolée sauf  (45,71,13) qui sont mal placées mais il peut s'agir d'erreur de recensements Donc le modèle n'est pas rejeté
+
+#qqplot des résidus standardisé : 
+#les residus sont normalement distribué bien qu'il y est certaines observations (74,93,13) qui semblent un peu fausse dans l'ensemble ils suivent une ligne droite Et on le voit bien avec le qqplot qui s'alligne avec y=x
+
+#scale location : 
+#L'hypothèse sur la variance des résidus est verifiée, le modèle a donc une bonne generalisation
+
+#residual vs leverage
+#le point 76 est erroné il faudra donc le retiré car en la gardant on perd en precision mais le modèle reste valide
+
+```{r }
+
+apprentissage=  apprentissage[apprentissage$maille_nom != "Paris",]
+regression_apprentissage = lm(deces_total~reanimation_total+hospitalises_total+gueris_total,data=apprentissage) # on retire Paris (point)
+plot(regression_apprentissage)
+
+```
+
+#en retirant le point 76 on remarque que cela n'a pas changé grand chose mais ça permis d'avoir une meilleure précision
+
+### 5) commenter les resultat obtenus ( coef de régressions de chaque variable)
+```{r }
+coef(regression_apprentissage)
+```
+
+#les coefficients ne sont pas nuls ce qui implique qu'ils ont tous un effet sur le modèle mais pas très persistant vu qu'il y'a une redandance comme nous avons pu le voir pour la correlation, don un modèle à 1 ou à 2 variables aurait largement suffit
+
+
+
+### 6) Calculer les erreurs MAE (Mean Absolute Error) et MSE (Mean Squared Error)
+
+fonction de calcul de la MAE et de la MSE
+```{r }
+MAE <- function(y_reel, y_est){
+  val = abs(y_reel-y_est)
+  mae_cal = mean(val)
+  return(mae_cal)
+  
+}
+
+MSE <- function(y_reel, y_est){
+  val = (y_reel-y_est)^2
+  mse_cal = mean(val)
+  return(mse_cal)
+  
+}
+
+```
+
+calcul sur l'ensemble d'apprentissage
+```{r }
+
+y_estime = predict(regression_apprentissage)
+
+MAE_appprentissage = MAE(apprentissage$deces_total,y_estime) 
+MAE_appprentissage
+
+MSE_apprentissage = MSE(apprentissage$deces_total,y_estime)
+MSE_apprentissage
+```
+
+calcul sur l'ensemble de test
+```{r }
+regression_test = lm(deces_total~reanimation_total+hospitalises_total+gueris_total,data=test)
+y_estime_test = predict(regression_test)
+
+MAE_test = MAE(test$deces_total,y_estime)
+MAE_test
+
+MSE_test = MSE(test$deces_total,y_estime)
+MSE_test
+```
+
+### 7) comparaison des résultats des erreurs de l’ensemble d’apprentissage et de test
+
+#Lors du calcul de la MAE et de la MSE,on remarque que le fait d'enlever le point 76 a permis une meilleur precision en effet MAE_apprentissage < MAE_test , on a donc une meilleure prediction lorsque on retire paris de notre modele. (a 300 voir 400 decès près)
+
+
+
+
+# Partie 3 : Clustering des départements selon la dynamique de propagation du virus
+
+1) réalisation d'une ACP
+```{r }
+pca = PCA(cov_19[,5:8])
+
+```
+
+#cercle de correlation : les lignes ont toutes la même portée donc une correlation positive entre elles et vu que l'angle qui sépare les variables est tres faible, les tangentes sont plutot faibles
+
+#nuage des individus : ici on remarque que 76 est une observation a rejeter car elle se situe loin de la zone de confiance, donc elle est probablement erronée
+
+
+```{r }
+barplot(pca$eig[,2],ylab= "Pourcentage d’inertie",col= cov_19$deces_total)
+# La composante 1 ramene 95 % de variance, les autres composantes ont une variance iferieur a 100/4 = 25 %
+```
+
+
+
+
+### 2) projection des individus (les départements) dans le plan d’inertie maximum et les colorier en utilisant la variable «deces_total»
+```{r }
+dd.hclust <- hclust(dist(cov_19$deces_total), method = "ward.D2")
+plot(dd.hclust)
+rect.hclust(dd.hclust, h = 5000) # afin de partitionner
+partition <- cutree(dd.hclust, h= 5000)
+
+plot(pca,label = "quali", cex=4,habillage = 1 )
+```
+
+#Au debut la classification est homogène pour les departements dont le nombre de deces est faible mais pour les autres ils sont trés rapprochés  
+
+
+
+### 3) classifications non-supervisées (clustering)
+
+K-means
+```{r }
+ratio_ss <- data.frame(cluster = seq(from = 1, to = 9, by = 1)) 
+for (k in 1:9) {
+  km_model <- kmeans(cov_19[,(5:8)], k, nstart = 20)
+  ratio_ss$ratio[k] <- km_model$tot.withinss / km_model$totss
+}
+
+ggplot(ratio_ss, aes(cluster, ratio)) + 
+  geom_line() +
+  geom_point()
+```
+
+#Nous voyons donc que le nombre de clusters idéal pour notre jeu de données se situe entre 3 et 5 (critere du coude), a partir de la nous choissisant 4 comme nombre de classes
+ 
+```{r 12}
+library(factoextra,options(warn = -1))
+kmean_res = kmeans(cov_19[,5:8],centers = 4, nstart=20)
+kmean_res$size 
+kmean_res$centers
+kmean_res$cluster
+cov_19.cr= scale (cov_19[,5:8] ,center = T,scale = T)
+row.names(cov_19.cr)=cov_19[,1]
+fviz_cluster(kmean_res, data = cov_19.cr )
+
+```
+
+
+CAH avec les 4 critères
+```{r }
+cov_19_prep = cov_19[,5:8]
+
+# matrice de distance (euclidienne)
+row.names(cov_19_prep)=cov_19[,1]
+distance = dist(cov_19_prep, method = "euclidean")
+```
+
+CAH lien minimum
+```{r }
+my_clust_1 = hclust(distance*distance, method  = "single")
+my_classe_1 = cutree(my_clust_1,k = 4)
+```
+
+CAH lien moyen
+```{r }
+my_clust_2 = hclust(distance*distance, method  = "average")
+my_classe_2 = cutree(my_clust_2,k = 4)
+```
+
+CAH lien maximum
+```{r }
+my_clust_3 = hclust(distance*distance, method  = "complete")
+my_classe_3 = cutree(my_clust_3,k = 4)
+```
+
+Ward
+```{r }
+my_clust_4 = hclust(distance*distance, method  = "ward.D")
+my_classe_4 = cutree(my_clust_4,k = 4)
+```
+
+
+### 4) étude comparative entre les résultats des différents algorithmes sous forme d’un tableau.
+```{r }
+cah_min_size = table(as.factor(my_classe_1))
+cah_moy_size = table(as.factor(my_classe_2))
+cah_max_size = table(as.factor(my_classe_3))
+cah_ward_size = table(as.factor(my_classe_4))
+compar_table = rbind(cah_min_size,cah_moy_size,cah_max_size,cah_ward_size,kmean_res$size)
+row.names(compar_table)=c("minimum","moyen","maximum","ward","kmeans")
+colnames(compar_table)=c("my_classe_1","my_classe_2","my_classe_3","my_classe_4")
+compar_table
+```
+
+#la repartition des valeurs suivant ward et kmeans semble meilleure que les 3 autres. En effet la repartition de ces dernieres ce fait essentiellement sur la classe 1
+
+
+Projection des groupes obtenus par chaque méthodes (clusters) sur le
+nuage des individus
+
+
+```{r }
+plot(pca$ind$coord,col = my_classe_1,pch = my_classe_1,main = "critere lien minimum")
+```
+
+```{r }
+plot(pca$ind$coord,col = my_classe_2,pch = my_classe_2,main = "critere lien moyen")
+```
+
+```{r }
+plot(pca$ind$coord,col = my_classe_3,pch = my_classe_3,main = "critere lien maximum")
+```
+
+```{r }
+plot(pca$ind$coord,col = my_classe_4,pch = my_classe_4,main = "critere ward")
+```
+
+```{r }
+plot(pca$ind$coord,col = kmean_res$cluster,pch = kmean_res$cluster,main = "kmeans")
+```
+
+
+### 5) Que peut-on déduire de l’analyse des résultats des trois parties ?
+
+#Partie 1 : nous avons eu une vue global sur les chiffres, cela nous a permis de voir que le nombre d'hospitalisation et de gueris et beaucoup plus importante que les deces et reanimation ainsi que la repartition de ces chiffres en france grace aux cartes
+
+#Partie 2 : nous avons vu qu'il y'avais une forte une correlation entre toute les variables et c'est plutot logiques car tout est lié et donc tout est une consequence d'une des autres variables, il ya des relations linéaire entre les 4 variables,  cela nous a egalement permis de voir quelle variable permet une meilleure prediction du nombre de deces en l'occurence (hospitalisation)
+
+#Partie 3 : dans cette partie nous avons etudié la similaritée des departement, cela nous a permis de créer des cleusteurs permettant la visualisations des departements ayant la meme dynamique de propagation, on ramarque d'ailleurs que <paris 76> est toujours isolée car c'est une grande ville et que les chiffres sont particuliés 
+
+#Au final : Paris a dans les 3 parties été isolée (fiabilité des résultats faible) il faudrait donc la traiter à part, on peut egalement dire que grace a l'etude on peut prevoir une strategie pour faire face au covid-19 grace au differentes analyses.
+
+
+
+
+# Bonus
+
+### 1) chargement du jeu de donnée
+```{r }
+fatality = read.csv2("fatality.csv", sep=",",dec=".")
+```
+
+
+### 2) classification des observations en 3 groupe
+```{r }
+fatality_prep = fatality[,c(4,5,6,9,10,11)] 
+#on considere uniquement les varibles quantitatives demandées
+
+fatality_prep_hclust <- hclust(dist(fatality_prep), method = "ward.D2")
+plot(fatality_prep_hclust)
+rect.hclust(fatality_prep_hclust, k=3) # afin de partitionner
+```
+
+K-means
+```{r }
+kmeans_fat = kmeans(fatality_prep,centers = 3,nstart = 20)
+
+fat_scaled= scale (fatality_prep ,center = T,scale = T)
+fviz_cluster(kmeans_fat, data = fat_scaled )
+```
+
+### 3) réalisation d'une ACP
+```{r }
+pca_fat = PCA(fatality_prep)
+
+#nuage des individus : on voit que 171 est une observation à rejeter car elle se situe loin de la zone de confiance et donc elle est probablement erronée
+
+#cercle de correlation : mrall et beertax sont proches, ils contiennent presque la meme information alors que perinc à l'opposé contient une information differente, aussi mlda et beertax étant proche du centre ne contribue pas à la creation des composantes principales, donc <perinc> <vmiles> <mrall> et <unrate> contribuent le plus à la creation des composantes pricipales
+```
+
+graphe des composantes
+```{r }
+barplot(pca_fat$eig[,2])
+
+#les 2 premieres composantes vont contenir 60% d'information ce qui est peu avec la 3eme cela fait 87% ce qui est relativement correct
+```
+
+calcul de la correlation
+```{r }
+correl_fat = cor(fatality_prep) #calcule de la correlation
+corrplot(correl_fat,type = "upper",addrect = 2,cl.ratio = 0.5,cl.cex = 0.8)
+```
