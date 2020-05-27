@@ -2,4 +2,6 @@
 Covid-19 analysis
 
 to see the result of the study
-open the file  "result_of_analysis.html" 
+go to :
+
+https://htmlpreview.github.io/?https://raw.githubusercontent.com/anis-harmali/Covid-19/master/result_of_the_analysis.html
